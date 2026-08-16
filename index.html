@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio — Flight</title>
+<meta name="theme-color" content="#05060f">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    height: 8000px; /* total scroll height — longer = more flight distance */
+    background: #05060f;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #e8eaf6;
+    overflow-x: hidden;
+  }
+  /* Starfield background */
+  .stars {
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+      radial-gradient(1px 1px at 70% 60%, #fff, transparent),
+      radial-gradient(2px 2px at 40% 80%, #8ab4ff, transparent),
+      radial-gradient(1px 1px at 90% 10%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 10% 90%, #c7d5ff, transparent);
+    background-size: 300px 300px;
+    opacity: 0.6;
+  }
+  .scene {
+    position: fixed; inset: 0;
+    overflow: hidden;
+    perspective: 800px;
+    perspective-origin: 50% 50%;
+    z-index: 1;
+  }
+  .world {
+    position: absolute; inset: 0;
+    transform-style: preserve-3d;
+    transition: transform 0.08s linear;
+    will-change: transform;
+  }
+  .card {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: min(520px, 80vw);
+    padding: 2.5rem;
+    background: rgba(20, 24, 45, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(138, 180, 255, 0.25);
+    border-radius: 16px;
+    box-shadow: 0 0 40px rgba(100, 140, 255, 0.15);
+    transform-style: preserve-3d;
+    --x: -50%;
+    --y: -50%;
+    --z: 0px;
+    transform: translate3d(var(--x), var(--y), var(--z));
+  }
+  /* per-card 3D position */
+  .c1 { --x: -50%; --y: -50%; --z: 0px; }
+  .c2 { --x: calc(-50% - 14vw); --y: -58%; --z: -1200px; }
+  .c3 { --x: calc(-50% + 18vw); --y: -40%; --z: -2600px; }
+  .c4 { --x: -50%; --y: -50%; --z: -4200px; }
+  .c5 { --x: calc(-50% - 16vw); --y: -55%; --z: -5800px; }
+  .c6 { --x: calc(-50% + 16vw); --y: -44%; --z: -7200px; }
+  .card h1 { font-size: clamp(1.7rem, 5vw, 2.2rem); margin-bottom: 0.5rem; color: #8ab4ff; }
+  .card h2 { font-size: clamp(1.35rem, 4vw, 1.6rem); margin-bottom: 1rem; color: #8ab4ff; }
+  .card p { line-height: 1.8; margin-bottom: 0.8rem; color: #c7d5ff; font-size: clamp(0.95rem, 3.5vw, 1.05rem); }
+  .card ul { list-style: none; padding-inline-start: 0; }
+  .card ul li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(138, 180, 255, 0.15);
+  }
+  .card .tag {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    margin: 0.2rem;
+    background: rgba(138, 180, 255, 0.15);
+    border-radius: 999px;
+    font-size: 0.9rem;
+  }
+  .card a { color: #8ab4ff; text-decoration: none; }
+  .card a:hover { text-decoration: underline; }
+
+  /* HUD */
+  .hud {
+    position: fixed; top: 1.5rem; left: 1.5rem; z-index: 10;
+    font-size: 0.85rem; color: #8ab4ff; opacity: 0.8;
+    font-family: monospace;
+  }
+  .scroll-hint {
+    position: fixed; bottom: 2rem; left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    color: #8ab4ff;
+    font-size: 0.9rem;
+    opacity: 0.8;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    html { overflow-x: hidden; }
+    .scene { perspective: 600px; }
+    .card { width: 86vw; padding: 1.6rem 1.4rem; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+    .c1, .c2, .c3, .c4, .c5, .c6 { --x: -50%; }
+    .c2 { --y: -60%; }
+    .c3 { --y: -38%; }
+    .c5 { --y: -56%; }
+    .c6 { --y: -42%; }
+    .scroll-hint { bottom: calc(1.5rem + env(safe-area-inset-bottom)); font-size: 0.8rem; }
+    .hud { top: 0.9rem; left: 0.9rem; font-size: 0.68rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stars"></div>
+
+<div class="hud">
+  <div id="altitude">ALT: 0</div>
+  <div id="speed">SPD: 0</div>
+</div>
+
+<div class="scroll-hint">↓ اسکرول کن و پرواز کن ↓</div>
+
+<div class="scene">
+  <div class="world" id="world">
+    <!-- Cards positioned in 3D space: translate3d(x, y, z) -->
+    <div class="card c1">
+      <h1>سلام، من یک برنامه‌نویسم</h1>
+      <p>Full-Stack Developer با عشق به کد تمیز و معماری ساده. اسکرول کن تا از میان دنیای من پرواز کنی.</p>
+    </div>
+
+    <div class="card c2">
+      <h2>درباره من</h2>
+      <p>بیش از ۵ سال تجربه در طراحی و توسعه وب‌اپلیکیشن‌های مقیاس‌پذیر. تمرکز روی عملکرد، خوانایی کد و تجربه کاربری.</p>
+      <p>علاقه‌مند به سیستم‌های توزیع‌شده، ابزارهای توسعه‌دهنده و UI/UX.</p>
+    </div>
+
+    <div class="card c3">
+      <h2>مهارت‌ها</h2>
+      <div>
+        <span class="tag">TypeScript</span>
+        <span class="tag">React</span>
+        <span class="tag">Node.js</span>
+        <span class="tag">Python</span>
+        <span class="tag">Go</span>
+        <span class="tag">PostgreSQL</span>
+        <span class="tag">Docker</span>
+        <span class="tag">AWS</span>
+        <span class="tag">Rust</span>
+        <span class="tag">GraphQL</span>
+      </div>
+    </div>
+
+    <div class="card c4">
+      <h2>پروژه‌ها</h2>
+      <ul>
+        <li><strong>TaskFlow</strong> — اپلیکیشن مدیریت پروژه realtime با WebSocket</li>
+        <li><strong>CodeLens</strong> — ابزار آنالیز کد با Rust و WASM</li>
+        <li><strong>DeployBot</strong> — CI/CD pipeline با Go و Docker</li>
+        <li><strong>DataViz</strong> — داشبورد تحلیلی با D3.js و Python</li>
+      </ul>
+    </div>
+
+    <div class="card c5">
+      <h2>تجربه کاری</h2>
+      <ul>
+        <li><strong>Senior Developer</strong> — شرکت فناوری (۱۴۰۲–اکنون)</li>
+        <li><strong>Full-Stack Developer</strong> — استارتاپ (۱۴۰۰–۱۴۰۲)</li>
+        <li><strong>Frontend Developer</strong> — آژانس دیجیتال (۱۳۹۸–۱۴۰۰)</li>
+      </ul>
+    </div>
+
+    <div class="card c6">
+      <h2>تماس</h2>
+      <p>ایمیل: <a href="mailto:hello@example.com">hello@example.com</a></p>
+      <p>گیت‌هاب: <a href="https://github.com">github.com/yourname</a></p>
+      <p>لینکدین: <a href="https://linkedin.com">linkedin.com/in/yourname</a></p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const world = document.getElementById('world');
+  const hudAlt = document.getElementById('altitude');
+  const hudSpd = document.getElementById('speed');
+  const hint = document.querySelector('.scroll-hint');
+
+  let lastScroll = 0;
+  let lastTime = performance.now();
+  let speed = 0;
+
+  // Scale: scroll position maps to Z translation (flight forward)
+  const FLIGHT_DEPTH = 8000; // max Z displacement in px
+  const SCROLL_SCALE = FLIGHT_DEPTH / (document.body.scrollHeight - window.innerHeight);
+
+  function update() {
+    const scrollY = window.scrollY;
+    const now = performance.now();
+    const dt = now - lastTime;
+    if (dt > 0) {
+      speed = Math.abs(scrollY - lastScroll) / dt * 1000 * SCROLL_SCALE;
+    }
+    lastScroll = scrollY;
+    lastTime = now;
+
+    const z = -scrollY * SCROLL_SCALE;
+    // Slight camera sway based on scroll speed for turbulence feel
+    const swayX = Math.sin(scrollY * 0.005) * 8;
+    const swayY = Math.cos(scrollY * 0.003) * 6;
+
+    world.style.transform = `translate3d(${swayX}px, ${swayY}px, ${z}px)`;
+
+    hudAlt.textContent = `ALT: ${Math.round(-z)}`;
+    hudSpd.textContent = `SPD: ${Math.round(speed)}`;
+
+    if (scrollY > 100) hint.style.opacity = '0';
+
+    requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+</script>
+</body>
+</html>
