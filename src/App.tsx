@@ -20,109 +20,112 @@ const projects: Project[] = [
 ]
 
 const eulerLook = new THREE.Euler(0, 0, 0, 'YXZ')
-const eulerYaw = new THREE.Euler(0, 0, 0, 'YXZ')
+
+function isTouchDevice() {
+  return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0
+}
 
 function FlightController({
-  locked,
-  setLocked,
+  flying,
+  setFlying,
 }: {
-  locked: boolean
-  setLocked: Dispatch<SetStateAction<boolean>>
+  flying: boolean
+  setFlying: Dispatch<SetStateAction<boolean>>
 }) {
   const { camera, gl } = useThree()
-  const keys = useRef({ f: false, b: false, l: false, r: false, u: false, d: false, sprint: false })
   const velocity = useRef(new THREE.Vector3())
   const yaw = useRef(0)
   const pitch = useRef(-0.12)
-  const tmp = useRef(new THREE.Vector3())
-  const forward = useRef(new THREE.Vector3())
-  const right = useRef(new THREE.Vector3())
-  const lockedRef = useRef(locked)
-  lockedRef.current = locked
+  const thrust = useRef(0)
+  const touch = useRef<{ id: number; x: number; y: number } | null>(null)
+  const dir = useRef(new THREE.Vector3())
+  const flyingRef = useRef(flying)
+  flyingRef.current = flying
 
   useEffect(() => {
     const canvas = gl.domElement
-    const onKey = (down: boolean) => (e: KeyboardEvent) => {
-      const codes = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight']
-      if (codes.includes(e.code)) e.preventDefault()
-      switch (e.code) {
-        case 'KeyW':
-        case 'ArrowUp':
-          keys.current.f = down
-          break
-        case 'KeyS':
-        case 'ArrowDown':
-          keys.current.b = down
-          break
-        case 'KeyA':
-        case 'ArrowLeft':
-          keys.current.l = down
-          break
-        case 'KeyD':
-        case 'ArrowRight':
-          keys.current.r = down
-          break
-        case 'Space':
-          keys.current.u = down
-          break
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          keys.current.sprint = down
-          break
-        case 'ControlLeft':
-        case 'ControlRight':
-        case 'KeyC':
-          keys.current.d = down
-          break
+    const start = () => {
+      if (!flyingRef.current) {
+        flyingRef.current = true
+        setFlying(true)
       }
     }
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      start()
+      thrust.current += e.deltaY * 0.018
+      thrust.current = THREE.MathUtils.clamp(thrust.current, -28, 36)
+    }
+
+    const onPointerDown = (e: PointerEvent) => {
+      if ((e.target as HTMLElement).tagName !== 'CANVAS') return
+      start()
+      touch.current = { id: e.pointerId, x: e.clientX, y: e.clientY }
+      canvas.setPointerCapture(e.pointerId)
+      if (!isTouchDevice()) {
+        canvas.requestPointerLock?.()
+      }
+    }
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (document.pointerLockElement === canvas) {
+        yaw.current -= e.movementX * 0.0024
+        pitch.current -= e.movementY * 0.0024
+        pitch.current = Math.max(-1.15, Math.min(1.15, pitch.current))
+        return
+      }
+      if (!touch.current || touch.current.id !== e.pointerId) return
+      const dx = e.clientX - touch.current.x
+      const dy = e.clientY - touch.current.y
+      touch.current = { id: e.pointerId, x: e.clientX, y: e.clientY }
+      yaw.current -= dx * 0.005
+      pitch.current -= dy * 0.004
+      pitch.current = Math.max(-1.15, Math.min(1.15, pitch.current))
+      // vertical drag also flies a little so one-finger scroll works on phones
+      thrust.current += dy * 0.08
+      thrust.current = THREE.MathUtils.clamp(thrust.current, -28, 36)
+    }
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (touch.current?.id === e.pointerId) touch.current = null
+    }
+
     const onMouse = (e: MouseEvent) => {
       if (document.pointerLockElement !== canvas) return
       yaw.current -= e.movementX * 0.0024
       pitch.current -= e.movementY * 0.0024
-      pitch.current = Math.max(-1.2, Math.min(1.2, pitch.current))
+      pitch.current = Math.max(-1.15, Math.min(1.15, pitch.current))
     }
-    const onLock = () => {
-      const isLocked = document.pointerLockElement === canvas
-      setLocked(isLocked)
-      lockedRef.current = isLocked
-    }
-    const kd = onKey(true)
-    const ku = onKey(false)
-    window.addEventListener('keydown', kd, { passive: false })
-    window.addEventListener('keyup', ku)
+
+    window.addEventListener('wheel', onWheel, { passive: false })
+    canvas.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
     document.addEventListener('mousemove', onMouse)
-    document.addEventListener('pointerlockchange', onLock)
     return () => {
-      window.removeEventListener('keydown', kd)
-      window.removeEventListener('keyup', ku)
+      window.removeEventListener('wheel', onWheel)
+      canvas.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
       document.removeEventListener('mousemove', onMouse)
-      document.removeEventListener('pointerlockchange', onLock)
     }
-  }, [gl, setLocked])
+  }, [gl, setFlying])
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05)
-    const k = keys.current
-    const move = (k.sprint ? 28 : 14) * dt
     eulerLook.set(pitch.current, yaw.current, 0)
-    eulerYaw.set(0, yaw.current, 0)
-    forward.current.set(0, 0, -1).applyEuler(eulerLook)
-    right.current.set(1, 0, 0).applyEuler(eulerYaw)
-    const target = tmp.current.set(0, 0, 0)
-    if (k.f) target.add(forward.current)
-    if (k.b) target.sub(forward.current)
-    if (k.r) target.add(right.current)
-    if (k.l) target.sub(right.current)
-    if (k.u) target.y += 1
-    if (k.d) target.y -= 1
-    if (target.lengthSq() > 0) target.normalize().multiplyScalar(move)
-    velocity.current.lerp(target, 1 - Math.exp(-10 * dt))
+    dir.current.set(0, 0, -1).applyEuler(eulerLook)
+    const target = dir.current.multiplyScalar(thrust.current * dt)
+    velocity.current.lerp(target, 1 - Math.exp(-8 * dt))
     camera.position.add(velocity.current)
     camera.position.x = THREE.MathUtils.clamp(camera.position.x, -80, 80)
     camera.position.z = THREE.MathUtils.clamp(camera.position.z, -80, 80)
     camera.position.y = THREE.MathUtils.clamp(camera.position.y, 1.4, 42)
     camera.quaternion.setFromEuler(eulerLook)
+    thrust.current *= Math.exp(-2.2 * dt)
   })
 
   return null
@@ -130,6 +133,7 @@ function FlightController({
 
 function Ocean() {
   const meshRef = useRef<THREE.Mesh>(null)
+  const segs = typeof window !== 'undefined' && window.innerWidth < 700 ? 48 : 96
   useFrame(({ clock }) => {
     const mesh = meshRef.current
     if (!mesh) return
@@ -150,7 +154,7 @@ function Ocean() {
   })
   return (
     <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-      <planeGeometry args={[220, 220, 96, 96]} />
+      <planeGeometry args={[220, 220, segs, segs]} />
       <meshPhysicalMaterial
         color="#0c6a7a"
         roughness={0.12}
@@ -209,7 +213,7 @@ function ProjectBeacon({ project }: { project: Project }) {
   )
 }
 
-function Experience({ locked, setLocked }: { locked: boolean; setLocked: Dispatch<SetStateAction<boolean>> }) {
+function Experience({ flying, setFlying }: { flying: boolean; setFlying: Dispatch<SetStateAction<boolean>> }) {
   return (
     <>
       <color attach="background" args={['#9ad4e0']} />
@@ -221,8 +225,8 @@ function Experience({ locked, setLocked }: { locked: boolean; setLocked: Dispatc
         intensity={2.4}
         color="#fff3c4"
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
         shadow-camera-far={120}
         shadow-camera-left={-40}
         shadow-camera-right={40}
@@ -230,7 +234,7 @@ function Experience({ locked, setLocked }: { locked: boolean; setLocked: Dispatc
         shadow-camera-bottom={-40}
       />
       <Sky sunPosition={[28, 18, 18]} turbidity={2.2} rayleigh={0.55} mieCoefficient={0.006} mieDirectionalG={0.8} />
-      <Stars radius={160} depth={40} count={800} factor={2} fade speed={0.4} />
+      <Stars radius={160} depth={40} count={500} factor={2} fade speed={0.4} />
       <Clouds material={THREE.MeshLambertMaterial}>
         <Cloud position={[-18, 18, -30]} bounds={[18, 4, 8]} volume={12} color="#ffffff" opacity={0.45} speed={0.15} />
         <Cloud position={[22, 16, -48]} bounds={[16, 3, 8]} volume={10} color="#e8f6ff" opacity={0.4} speed={0.12} />
@@ -240,19 +244,14 @@ function Experience({ locked, setLocked }: { locked: boolean; setLocked: Dispatc
       {projects.map((project) => (
         <ProjectBeacon key={project.title} project={project} />
       ))}
-      <FlightController locked={locked} setLocked={setLocked} />
+      <FlightController flying={flying} setFlying={setFlying} />
     </>
   )
 }
 
 export default function App() {
-  const [locked, setLocked] = useState(false)
+  const [flying, setFlying] = useState(false)
   const [selected, setSelected] = useState<Project | null>(null)
-
-  const startFlight = () => {
-    const canvas = document.querySelector('canvas')
-    canvas?.requestPointerLock()
-  }
 
   return (
     <main>
@@ -260,23 +259,19 @@ export default function App() {
         shadows
         camera={{ position: [0, 8, 16], fov: 68, near: 0.1, far: 250 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
-        onPointerDown={(e) => {
-          const target = e.target as HTMLElement
-          if (target.tagName === 'CANVAS') target.requestPointerLock()
-        }}
       >
-        <Experience locked={locked} setLocked={setLocked} />
+        <Experience flying={flying} setFlying={setFlying} />
       </Canvas>
 
       <header className="hud topbar">
         <span className="mark">≈</span>
         <span>ARASH / CREATIVE DEVELOPER</span>
         <span className="status">
-          <i /> {locked ? 'FLYING' : 'READY'}
+          <i /> {flying ? 'FLYING' : 'READY'}
         </span>
       </header>
 
-      {!locked && (
+      {!flying && (
         <section className="hud intro">
           <p className="eyebrow">OCEAN STUDIO</p>
           <h1>
@@ -284,33 +279,18 @@ export default function App() {
             <br />
             <em>پرواز کن.</em>
           </h1>
-          <p className="lead">روی صحنه کلیک کن، بعد با WASD و ماوس پرواز کن. Esc برای خروج از پرواز.</p>
-          <button type="button" className="start" onClick={startFlight}>
-            شروع پرواز ↗
-          </button>
+          <p className="lead">اسکرول کن تا جلو بروی. روی صفحه بکش تا نگاه بچرخد. فقط با اسکرول پرواز می‌کنی.</p>
         </section>
       )}
 
       <div className="hud hint">
         <div>
-          <strong>کلیک</strong>
-          <span>قفل نگاه</span>
+          <strong>اسکرول</strong>
+          <span>پرواز جلو / عقب</span>
         </div>
         <div>
-          <strong>W A S D</strong>
-          <span>حرکت</span>
-        </div>
-        <div>
-          <strong>Space</strong>
-          <span>بالا</span>
-        </div>
-        <div>
-          <strong>C</strong>
-          <span>پایین</span>
-        </div>
-        <div>
-          <strong>Shift</strong>
-          <span>سرعت</span>
+          <strong>کشیدن</strong>
+          <span>چرخش نگاه</span>
         </div>
       </div>
 

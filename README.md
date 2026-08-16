@@ -1,6 +1,6 @@
 # Flying Portfolio
 
-A 3D programming portfolio: instead of scrolling, you fly through an ocean scene with WASD, mouse look, Space/Ctrl, and Shift for speed.
+A 3D programming portfolio: instead of a page of cards, you fly through an ocean scene. Scroll to move forward or back; drag to look around. On phones the same gestures work without pointer lock.
 
 Live: https://flying-portfolio.vercel.app
 

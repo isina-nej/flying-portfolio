@@ -127,8 +127,19 @@ footer a { color: #f3fbf5; text-decoration: none; pointer-events: auto; }
 }
 
 @media (max-width: 650px) {
-  .topbar, footer.hud { padding: 18px 20px; }
-  .intro { left: 20px; top: 16vh; }
-  .hint { left: 20px; bottom: 72px; flex-wrap: wrap; gap: 10px; }
+  .topbar, footer.hud { padding: 14px 16px; }
+  .topbar span:nth-child(2) { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .intro { left: 16px; right: 16px; top: 14vh; max-width: none; }
+  h1 { font-size: clamp(40px, 12vw, 72px); }
+  .lead { font-size: 15px; }
+  .hint {
+    left: 16px;
+    right: 16px;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  footer.hud { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   footer span:nth-child(2) { display: none; }
+  .project-card { right: 16px; left: 16px; width: auto; bottom: calc(88px + env(safe-area-inset-bottom)); }
 }
